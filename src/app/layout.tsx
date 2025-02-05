@@ -18,9 +18,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <Providers defaultTheme={config.app.defaultTheme}>
-          {children}
+      <head />
+      <body className={`${inter.className} antialiased`}>
+        <Providers>
+          <div suppressHydrationWarning>
+            {children}
+          </div>
         </Providers>
       </body>
     </html>
