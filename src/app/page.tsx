@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Loader2, Send, FileUp, Plus, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { config } from '@/config'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -17,7 +18,7 @@ export default function Home() {
 
   // Load messages from localStorage on initial render
   useEffect(() => {
-    const savedMessages = localStorage.getItem('chatMessages')
+    const savedMessages = localStorage.getItem(config.app.storageKeys.chatMessages)
     if (savedMessages) {
       setMessages(JSON.parse(savedMessages))
     }
@@ -25,7 +26,7 @@ export default function Home() {
 
   // Save messages to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('chatMessages', JSON.stringify(messages))
+    localStorage.setItem(config.app.storageKeys.chatMessages, JSON.stringify(messages))
   }, [messages])
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,11 +39,11 @@ export default function Home() {
     setIsLoading(true)
     
     try {
-      const response = await fetch('https://azure-openai-evcc.openai.azure.com/openai/deployments/EVCC_openAI_instance_testing/chat/completions?api-version=2024-10-21', {
+      const response = await fetch(`${config.azure.endpoint}/openai/deployments/${config.azure.deploymentId}/chat/completions?api-version=${config.azure.apiVersion}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-key': process.env.NEXT_PUBLIC_AZURE_API_KEY || '',
+          'api-key': config.azure.apiKey,
         },
         body: JSON.stringify({
           messages: [...messages, newMessage],
@@ -67,24 +68,34 @@ export default function Home() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const content = e.target?.result as string
-        const newMessage: Message = {
-          role: 'user',
-          content: `Uploaded file content:\n${content}`,
-        }
-        setMessages(prev => [...prev, newMessage])
-      }
-      reader.readAsText(file)
+    if (!file) return
+
+    if (file.size > config.app.maxFileSize) {
+      alert('File size exceeds the maximum limit')
+      return
     }
+
+    if (!config.app.supportedFileTypes.some(type => file.type.match(type))) {
+      alert('File type not supported')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const content = e.target?.result as string
+      const newMessage: Message = {
+        role: 'user',
+        content: `Uploaded file content:\n${content}`,
+      }
+      setMessages(prev => [...prev, newMessage])
+    }
+    reader.readAsText(file)
   }
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
       {/* Sidebar */}
-      <div className="w-64 bg-white dark:bg-gray-800 p-4 border-r dark:border-gray-700">
+      <div className={`${config.ui.sidebar.width} bg-white dark:bg-gray-800 p-4 border-r dark:border-gray-700`}>
         <button
           onClick={handleNewChat}
           className="w-full flex items-center gap-2 p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -119,8 +130,8 @@ export default function Home() {
               <div
                 className={`max-w-[80%] p-3 rounded-lg ${
                   message.role === 'user'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700'
+                    ? config.ui.colors.userMessage
+                    : config.ui.colors.assistantMessage
                 }`}
               >
                 {message.content}
@@ -145,6 +156,7 @@ export default function Home() {
                 type="file" 
                 className="hidden" 
                 onChange={handleFileUpload}
+                accept={config.app.supportedFileTypes.join(',')}
                 aria-label="Upload file"
               />
               <FileUp size={20} />
@@ -160,7 +172,7 @@ export default function Home() {
             <button
               type="submit"
               disabled={isLoading}
-              className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+              className={`p-2 bg-${config.ui.colors.primary}-500 text-white rounded-lg hover:bg-${config.ui.colors.primary}-600 disabled:opacity-50`}
               aria-label="Send message"
             >
               <Send size={20} />
